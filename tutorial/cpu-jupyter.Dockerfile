@@ -11,8 +11,15 @@ RUN echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.
 RUN pip3 install jupyter matplotlib jupyter_http_over_ws &&\
   jupyter serverextension enable --py jupyter_http_over_ws
 
-RUN git clone https://github.com/waymo-research/waymo-open-dataset.git waymo-od
-WORKDIR /waymo-od
+#RUN git clone https://github.com/waymo-research/waymo-open-dataset.git waymo-od
+WORKDIR /tutorial
+RUN pip install opencv-python
+RUN pip install tqdm xxhash opencv-python mmcv torch
+RUN pip install git+https://github.com/vnbot2/pyson
+RUN apt-get update
+RUN apt-get install -y libsm6 libxext6 libxrender-dev
+RUN pip install opencv-python
+
 
 RUN bash ./configure.sh && \
     bash bazel query ... | xargs bazel build -c opt && \
