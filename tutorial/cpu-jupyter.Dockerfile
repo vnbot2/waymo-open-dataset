@@ -18,7 +18,6 @@ RUN bash ./configure.sh && \
     bash bazel query ... | xargs bazel build -c opt && \
     bash bazel query 'kind(".*_test rule", ...)' | xargs bazel test -c opt ...
 
-#RUN git clone https://github.com/waymo-research/waymo-open-dataset.git waymo-od
 RUN pip install opencv-python
 RUN pip install tqdm xxhash
 RUN pip install git+https://github.com/vnbot2/pyson
@@ -28,5 +27,6 @@ RUN pip install opencv-python
 
 EXPOSE 8888
 RUN python3 -m ipykernel.kernelspec
-
-CMD ["bash", "-c", "source /etc/bash.bashrc && bazel run -c opt //tutorial:jupyter_kernel"]
+RUN pip3 install waymo-open-dataset-tf-2-1-0==1.2.0
+WORKDIR /waymo-od/code/tutorial
+#CMD ["bash", "-c", "source /etc/bash.bashrc && bazel run -c opt //tutorial:jupyter_kernel"]

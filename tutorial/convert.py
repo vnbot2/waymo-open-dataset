@@ -16,23 +16,25 @@ from glob import glob
 # Step 1 tf->json
 ###################################################
 
-data_paths_val = glob('/waymo/val*/*.tfrecord')
-data_paths_train = [_ for _ in glob('/waymo/*/*.tfrecord') if not _ in data_paths_val]
+data_paths_val = glob('/waymo/validation/*.tfrecord')
+data_paths_train = [_ for _ in glob('/waymo/training_1.2/*.tfrecord') if not _ in data_paths_val]
 data_paths_train_cam = [_ for _ in data_paths_train if 'camera_labels' in _]
 data_paths_train_not_cam = [_ for _ in data_paths_train if not 'camera_labels' in _]
+print("Len not cam:", len(data_paths_train_not_cam))
 
-paths_records = data_paths_val
-output_dir = '/waymo/coco_style/'
-path_sample_coco_annotation = '/waymo/coco_style/intermidiate_json/instances_val2017.json'
-path_output_annotation = "/waymo/coco_style/annotations/val_all.json"
+paths_records = data_paths_train
+output_dir = '/waymo/coco_style_1.2/'
+path_sample_coco_annotation = './sample_json.json'
+path_output_annotation = "/waymo/coco_style/annotations/train.json"
 
+os.makedirs(output_dir+ "annotations/", exist_ok=True)
+os.makedirs(output_dir +"images/", exist_ok=True)
 def process_frame(frame):
     frame, frame_id, frame_name = frame
     images = frame.images
     images = frame.images
     labels = frame.camera_labels
 
-    os.makedirs(output_dir, exist_ok=True)
     rt = dict()
     for im_id in range(len(images)):
         image = images[im_id]
