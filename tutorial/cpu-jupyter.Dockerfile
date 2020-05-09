@@ -28,5 +28,7 @@ RUN pip install opencv-python
 EXPOSE 8888
 RUN python3 -m ipykernel.kernelspec
 RUN pip3 install waymo-open-dataset-tf-2-1-0==1.2.0
+RUN pip install ipdb pdbpp
+RUN apt-get install tmux -y 
 WORKDIR /waymo-od/code/tutorial
 #CMD ["bash", "-c", "source /etc/bash.bashrc && bazel run -c opt //tutorial:jupyter_kernel"]
