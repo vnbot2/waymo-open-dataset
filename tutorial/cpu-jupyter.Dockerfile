@@ -31,4 +31,6 @@ RUN pip3 install waymo-open-dataset-tf-2-1-0==1.2.0
 RUN pip install ipdb pdbpp
 RUN apt-get install tmux -y 
 WORKDIR /waymo-od/code/tutorial
+RUN pip install jupyterlab
+CMD ["bash", "-c", "source /etc/bash.bashrc && jupyter lab --port 8888 --ip 0.0.0.0 --allow-root"]
 #CMD ["bash", "-c", "source /etc/bash.bashrc && bazel run -c opt //tutorial:jupyter_kernel"]

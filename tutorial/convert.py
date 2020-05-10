@@ -12,6 +12,7 @@ from waymo_open_dataset import dataset_pb2 as open_dataset
 from pyson.utils import multi_thread
 # tf.__version__
 from glob import glob
+from utils import get_3d_points
 ################################################
 # Step 1 tf->json
 ###################################################
@@ -35,15 +36,18 @@ def process_frame(frame):
     images = frame.images
     images = frame.images
     labels = frame.camera_labels
+    import ipdb; ipdb.set_trace()
+    lidar_labels = frame.lidar_labels
     rt = dict()
     for im_id in range(len(images)):
         image = images[im_id]
         image_name = open_dataset.CameraName.Name.Name(image.name)
-        image = tf.image.decode_jpeg(image.image).numpy()
         output_name = os.path.join(output_dir, 'images', f'{frame_name}_{frame_id}_{image_name}.jpg')
+        image = tf.image.decode_jpeg(image.image).numpy()
         #if not os.path.exists(output_name):
         #    cv2.imwrite(output_name, image)
         bboxes_coco = []
+        bboxes_3d = []
         class_ids = []
         bboxes_id = []
         detection_difficulty_levels = []
@@ -55,7 +59,6 @@ def process_frame(frame):
             bboxes = labels[im_id].labels # bboxes list for image 0 in this frame
             for box in bboxes:
                 cx, cy, h, w = box.box.center_x, box.box.center_y, box.box.width, box.box.length
-                import ipdb; ipdb.set_trace()
                 x = cx - w/2
                 y = cy - h/2
                 class_id = box.type
@@ -66,9 +69,14 @@ def process_frame(frame):
                 class_ids.append(class_id)
                 tracking_difficulty_levels.append(box.tracking_difficulty_level)
                 detection_difficulty_levels.append(box.detection_difficulty_level)
-
+        
+        # process 3d box
+        bboxes_3d = get_3d_points(camera_calibration, frame.laser_labels)
+        
+        
         rt[output_name] = dict(with_camlabel=with_camlabel,
                                bboxes=bboxes_coco, 
+                               bboxes_3d=bboxes_3d,
                                bboxes_id=bboxes_id, 
                                labels=class_ids,
                                timestamp_micros=frame.timestamp_micros,
@@ -89,7 +97,6 @@ def f_datapath(data_path):
     return frames
 
 # debug
-import ipdb; ipdb.set_trace()
 frames = f_datapath(paths_records[0])
 process_frame(frames[0])
 # ----------------------
