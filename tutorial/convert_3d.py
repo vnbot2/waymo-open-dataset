@@ -71,7 +71,7 @@ def f_frame_data(frame_data):
         # try:
         camera_calibration = utils.get(frame.context.camera_calibrations,
                                     camera_name)
-        camera = utils.get(frame.images, camera_name)
+        
         image_name = dataset_pb2.CameraName.Name.Name(camera_name)
         output_name = os.path.join(
             output_dir, 'images', f'{frame_name}_{frame_id}_{image_name}.jpg')
@@ -79,7 +79,7 @@ def f_frame_data(frame_data):
             img = cv2.imread(output_name)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         except:
-            # Decode the image
+            camera = utils.get(frame.images, camera_name)
             img = utils.decode_image(camera)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             cv2.imwrite(output_name, img)
@@ -105,6 +105,7 @@ def f_frame_data(frame_data):
         proj_pcl = torch.einsum('lij,bj->lbi', torch_vehicle_to_labels, torch_pcl1).cpu().numpy()
         # numpy version
         # proj_pcl = np.einsum('lij,bj->lbi', vehicle_to_labels, pcl1)
+        
         mask = np.logical_and.reduce(np.logical_and(proj_pcl >= -1,
                                                     proj_pcl <= 1),
                                     axis=2)
