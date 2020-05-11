@@ -3,6 +3,9 @@ from pyson.utils import read_json
 from glob import glob
 import os
 from tqdm import tqdm
+
+
+
 output_dir = '/ssd6/coco_style_1.2/'
 coco_json_dir = output_dir + "annotations/output_json_coco/"
 out_file = output_dir +"annotations/train_3d.json"
@@ -23,7 +26,7 @@ cates = [{'supercategory': 'vehicle', 'id': 1, 'name': 'vehicle'},
 del sample['with_camlabel']
 sample['categories'] = cates
 
-for path in tqdm(json_paths[:5]):
+for path in tqdm(json_paths):
     image_id_old_new = dict()
     x = read_json(path)
     for image in x['images']:

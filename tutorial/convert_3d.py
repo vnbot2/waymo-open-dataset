@@ -156,14 +156,32 @@ camera_names = [
     dataset_pb2.CameraName.SIDE_RIGHT
 ]
 
+_tf_paths = []
+for filename in tf_paths:
+    out_json = out_json_dir + "/" + os.path.basename(filename) + '.json'
+    output_path = os.path.join(coco_json_dir, os.path.basename(filename))+".json"
+
+    if  os.path.exists(out_json) and os.path.exists(output_path):
+        pass 
+    else:
+        _tf_paths.append(filename)
+
+tf_paths = _tf_paths
+# import ipdb; ipdb.set_trace()
+
+print("Total filterd paths: ", len(tf_paths))
+
 length = len(tf_paths) // args.num_runner
 start = args.start * length
 end = min((args.start + 1) * length, len(tf_paths))
+
+
 tf_paths = tf_paths[start:end]
 
 
 
 for p_i, filename in enumerate(tf_paths):
+    print('-----------------------------------')
     # convert TF->JSON
     print("process", start + p_i, "/", end)
     out_json = out_json_dir + "/" + os.path.basename(filename) + '.json'
@@ -187,23 +205,20 @@ for p_i, filename in enumerate(tf_paths):
     # Convert to coco_format
     output_path = os.path.join(coco_json_dir, os.path.basename(filename))+".json"
     if os.path.exists(output_path):
-        print("JSON->COCO exists, RETURN", output_path)
+        print("JSON->COCO exists, CONTINUE", output_path)
         continue
     else:
-        print("TF->JSON exists, READ:", out_json)
+        
         try:
+            print("TF->JSON exists, READ:", out_json)
             out = read_json(out_json)
         except:
-            print("REMOVE JSON", out_json)
+            print("Cannot read-> remove json", out_json)
             os.remove(out_json)
             continue
+            
         if not READ_FRAMES:
-            try:
-                frames_data = f_datapath(filename)
-            except:
-                print("REMOVE: ", filename)
-                os.remove(filename)
-                continue
+            frames_data = f_datapath(filename)
 
     print('Converting JSON->COCO....')
     images = []
@@ -222,7 +237,6 @@ for p_i, filename in enumerate(tf_paths):
     sample['annotations'] = annotations
     with open(output_path, "w") as f:
         json.dump(sample, f)
-    print('->', output_path,'\n------------------------')
 
 
 
