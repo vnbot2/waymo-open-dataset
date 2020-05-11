@@ -1,72 +1,71 @@
-import torch
-
-from pyson.utils import print_source, multi_thread, read_json
-import mmcv
-
-import numpy as np
-import math
-import cv2
-import io
-# from waymo_open_dataset import dataset_pb2 as open_dataset
-import sys
-from tqdm import tqdm
-import json
-import os
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from simple_waymo_open_dataset_reader import WaymoDataFileReader
-from simple_waymo_open_dataset_reader import dataset_pb2, label_pb2
-from simple_waymo_open_dataset_reader import utils
-from utils import *
-import matplotlib.cm
-from glob import glob
 import argparse
-from pyson.utils import read_json
-# os.environ['CUDA_VISIBLE_DEVICES']='0'
+import io
+import json
+import math
+import os
+import sys
+from glob import glob
 
+import cv2
+import matplotlib.cm
+import matplotlib.pyplot as plt
+import mmcv
+import numpy as np
+import tensorflow as tf
+import torch
+from pyson.utils import multi_thread, print_source, read_json, timeit
+from simple_waymo_open_dataset_reader import (WaymoDataFileReader, dataset_pb2,
+                                              label_pb2, utils)
+from tqdm import tqdm
+
+from utils import *
 debug = os.environ.get('DEBUG', False) == '1'
 
 cmap = matplotlib.cm.get_cmap("viridis")
 tf.enable_eager_execution()
 
-# tf.config.gpu.set_per_process_memory_fraction(0.75)
-# tf.config.experimental.set_per_process_memory_growth(True)
+name_ssd = [
+    os.path.basename(_) for _ in glob('/ssd6/waymo/tfrecord_train/*.tfrecord')
+]
+name_toyota = [
+    os.path.basename(_) for _ in glob('/toyota/waymo/training_1.2/*.tfrecord')
+]
+tf_paths = []
 
-data_paths_train =  glob('/ssd6/waymo/tfrecord_train/*.tfrecord')#[_ for _ in]# if not _ in data_paths_val]
+for name in name_toyota:
+    path = os.path.join('/ssd6/waymo/tfrecord_train/', name)
+    if not os.path.exists(path):
+        path = os.path.join('/toyota/waymo/training_1.2/', name)
+    tf_paths.append(path)
+
+print("Total len:", len(tf_paths))
+
 if debug:
     os
     output_dir = 'outdir'
     os.makedirs("./cache")
 else:
     output_dir = '/ssd6/coco_style_1.2/'
+
 out_laser_dir = output_dir + '/laser_images'
 out_image_dir = output_dir + '/images'
 out_json_dir = output_dir + '/annotations/output_json'
+coco_json_dir = output_dir + "annotations/output_json_coco/"
+os.makedirs(coco_json_dir, exist_ok=True)
 os.makedirs(out_laser_dir, exist_ok=1)
 os.makedirs(out_image_dir, exist_ok=1)
 os.makedirs(out_json_dir, exist_ok=1)
 
-
 parser = argparse.ArgumentParser()
-parser.add_argument("--start","-s", type=int)
+parser.add_argument("--start", "-s", type=int)
+parser.add_argument("--num_runner", "-n", default=1, type=int)
 args = parser.parse_args()
 
-def f_datapath(data_path):
-    f_name = os.path.basename(data_path)
-    frame_name = os.path.basename(data_path)
-    frame_id = 0
-    dataset = tf.data.TFRecordDataset(data_path, compression_type='')
-    frames = []
-    for data in dataset:
-        frame_id += 1
-        frame = dataset_pb2.Frame()
-        frame.ParseFromString(bytearray(data.numpy()))
-        frames.append((frame, frame_id, f_name))
-    return frames
+sample = json.load(open('/ssd6/coco_style_1.2/annotations/val.json'))
+
+
 
 anno = read_json('/ssd6/coco_style_1.2/annotations/test.json')
-
-from pyson.utils import timeit
 
 
 def f_frame_data(frame_data):
@@ -74,81 +73,156 @@ def f_frame_data(frame_data):
     laser_name = dataset_pb2.LaserName.TOP
     laser = utils.get(frame.lasers, laser_name)
     laser_calibration = utils.get(frame.context.laser_calibrations, laser_name)
-    ri, camera_projection, range_image_pose = utils.parse_range_image_and_camera_projection(laser)
-    pcl, pcl_attr = utils.project_to_pointcloud(frame, ri, camera_projection, range_image_pose, laser_calibration)
+    ri, camera_projection, range_image_pose = utils.parse_range_image_and_camera_projection(
+        laser)
+    pcl, pcl_attr = utils.project_to_pointcloud(frame, ri, camera_projection,
+                                                range_image_pose,
+                                                laser_calibration)
     result = {}
     for camera_name in camera_names:
-        camera_calibration = utils.get(frame.context.camera_calibrations, camera_name)
-        camera = utils.get(frame.images, camera_name)
-        image_name = dataset_pb2.CameraName.Name.Name(camera_name)
-        output_name = os.path.join(output_dir, 'images', f'{frame_name}_{frame_id}_{image_name}.jpg')
-        if os.path.exists(output_name):
-            img = cv2.imread(output_name)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        else:
-            # Decode the image
-            img = utils.decode_image(camera)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(output_name, img)
-            # BGR to RGB
+        try:
+            camera_calibration = utils.get(frame.context.camera_calibrations,
+                                        camera_name)
+            camera = utils.get(frame.images, camera_name)
+            image_name = dataset_pb2.CameraName.Name.Name(camera_name)
+            output_name = os.path.join(
+                output_dir, 'images', f'{frame_name}_{frame_id}_{image_name}.jpg')
+            try:
+                img = cv2.imread(output_name)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            except:
+                # Decode the image
+                img = utils.decode_image(camera)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                cv2.imwrite(output_name, img)
+                # BGR to RGB
 
-        
-         # Get the transformation matrix for the camera.
-        vehicle_to_image = utils.get_image_transform(camera_calibration)
-        vehicle_to_labels = []
-        for label in frame.laser_labels:
-            vehicle_to_label = np.linalg.inv(utils.get_box_transformation_matrix(label.box))
-            vehicle_to_labels.append(vehicle_to_label)
+            # Get the transformation matrix for the camera.
+            vehicle_to_image = utils.get_image_transform(camera_calibration)
+            vehicle_to_labels = []
+            for label in frame.laser_labels:
+                vehicle_to_label = np.linalg.inv(
+                    utils.get_box_transformation_matrix(label.box))
+                vehicle_to_labels.append(vehicle_to_label)
 
-
-        vehicle_to_labels = np.stack(vehicle_to_labels)
-        # Convert the pointcloud to homogeneous coordinates.
-        pcl1 = np.concatenate((pcl,np.ones_like(pcl[:,0:1])),axis=1)
-        device = torch.device(f'cuda:{frame_id%4}')
-        torch_vehicle_to_labels = torch.from_numpy(vehicle_to_labels.astype(np.float32)).to(device)
-        torch_pcl1 = torch.from_numpy(pcl1.astype(np.float32)).to(device)
-        proj_pcl = torch.einsum('lij,bj->lbi', torch_vehicle_to_labels, torch_pcl1).cpu().numpy()
-        mask = np.logical_and.reduce(np.logical_and(proj_pcl >= -1, proj_pcl <= 1),axis=2)
-        # Count the points inside each label's box.
-        counts = mask.sum(1)
-        # Keep boxes which contain at least 10 LIDAR points.
-        visibility = counts > 10
-
-        # Display the LIDAR points on the image.
-        laser_as_img = np.zeros_like(img)
-        display_laser_on_image(laser_as_img, pcl, vehicle_to_image, pcl_attr)
-        output_laser_name = os.path.join(out_laser_dir, os.path.basename(output_name))
-        box_3d_list = get_3d_points(camera_calibration, frame.laser_labels)
-        box_2d_list = get_2d_bbox(frame, camera_name)
-        # debug
-
-
-        # if not os.path.exists(output_laser_name):
-        cv2.imwrite(output_laser_name, laser_as_img)
-        # print(output_laser_name)
-        result[output_name] = dict(box_3d_list=box_3d_list, box_2d_list=box_2d_list,
-                                   visibility=visibility.tolist())
+            vehicle_to_labels = np.stack(vehicle_to_labels)
+            # Convert the pointcloud to homogeneous coordinates.
+            pcl1 = np.concatenate((pcl, np.ones_like(pcl[:, 0:1])), axis=1)
+            device = torch.device(f'cuda:{frame_id%4}')
+            device = "cpu"
+            torch_vehicle_to_labels = torch.from_numpy(
+                vehicle_to_labels.astype(np.float32)).to(device)
+            torch_pcl1 = torch.from_numpy(pcl1.astype(np.float32)).to(device)
+            proj_pcl = torch.einsum('lij,bj->lbi', torch_vehicle_to_labels,
+                                    torch_pcl1).cpu().numpy()
+            mask = np.logical_and.reduce(np.logical_and(proj_pcl >= -1,
+                                                        proj_pcl <= 1),
+                                        axis=2)
+            # Count the points inside each label's box.
+            counts = mask.sum(1)
+            # Keep boxes which contain at least 10 LIDAR points.
+            visibility = counts > 10
+            # Display the LIDAR points on the image.
+            laser_as_img = np.zeros_like(img)
+            display_laser_on_image(laser_as_img, pcl, vehicle_to_image, pcl_attr)
+            output_laser_name = os.path.join(out_laser_dir,
+                                            os.path.basename(output_name))
+            box_3d_list = get_3d_points(camera_calibration, frame.laser_labels)
+            box_2d_list = get_2d_bbox(frame, camera_name)
+            cv2.imwrite(output_laser_name, laser_as_img)
+            result[output_name] = dict(box_3d_list=box_3d_list,
+                                    box_2d_list=box_2d_list,
+                                    counts=counts.tolist())
+        except:
+            #ignore this frame
+            print("Error on a frame, ignore")
+            continue
         if debug:
             display_laser_on_image(img, pcl, vehicle_to_image, pcl_attr)
             display_3d_box_on_image(img, box_3d_list, visibility)
             display_2d_box_on_image(img, box_2d_list)
-            debug_path = './cache/'+os.path.basename(output_laser_name)
+            debug_path = './cache/' + os.path.basename(output_laser_name)
             cv2.imwrite(debug_path, img)
             print(debug_path)
     return result
 
-camera_names = [dataset_pb2.CameraName.FRONT, dataset_pb2.CameraName.FRONT_LEFT, dataset_pb2.CameraName.FRONT_RIGHT, dataset_pb2.CameraName.SIDE_LEFT, dataset_pb2.CameraName.SIDE_RIGHT]
 
-paths = data_paths_train[args.start:args.start+100]
-for i, filename in enumerate(paths):
-    out_json = out_json_dir+"/"+os.path.basename(filename)+'.json'
-    out = dict()
-    print(i, filename, '/', len(paths))
-    frames_data = f_datapath(filename)
-    f_frame_data(frames_data[0])
-    outs = multi_thread(f_frame_data, frames_data, verbose=1, max_workers=4)
-    for _ in out:
-        out.update(out)
-    print('-----------------------')
-    with open(out_json, 'w') as f:
-        json.dump(out, f)
+
+
+
+camera_names = [
+    dataset_pb2.CameraName.FRONT, dataset_pb2.CameraName.FRONT_LEFT,
+    dataset_pb2.CameraName.FRONT_RIGHT, dataset_pb2.CameraName.SIDE_LEFT,
+    dataset_pb2.CameraName.SIDE_RIGHT
+]
+
+length = len(tf_paths) // args.num_runner
+start = args.start * length
+end = min((args.start + 1) * length, len(tf_paths))
+tf_paths = tf_paths[start:end]
+
+
+
+for p_i, filename in enumerate(tf_paths):
+    # convert TF->JSON
+    print("process", start + p_i, "/", end)
+    out_json = out_json_dir + "/" + os.path.basename(filename) + '.json'
+    READ_FRAMES=False
+    if not os.path.exists(out_json):
+        # continue # ignore for debug
+        out = dict()
+        frames_data = f_datapath(filename)
+        READ_FRAMES = True
+        print("TF->JSON not exists, MULTITHREAD:", out_json)
+        outs = multi_thread(f_frame_data,
+                            frames_data,
+                            verbose=1,
+                            max_workers=4)
+        for _ in outs:
+            out.update(_)
+        with open(out_json, 'w') as f:
+            json.dump(out, f)
+
+
+    # Convert to coco_format
+    output_path = os.path.join(coco_json_dir, os.path.basename(filename))+".json"
+    if os.path.exists(output_path):
+        print("JSON->COCO exists, RETURN", output_path)
+        continue
+    else:
+        print("TF->JSON exists, READ:", out_json)
+        try:
+            out = read_json(out_json)
+        except:
+            print("REMOVE JSON", out_json)
+            os.remove(out_json)
+            continue
+        if not READ_FRAMES:
+            try:
+                frames_data = f_datapath(filename)
+            except:
+                print("REMOVE: ", filename)
+                os.remove(filename)
+                continue
+
+    print('Converting JSON->COCO....')
+    images = []
+    annotations = []
+    image_id = 0
+    labels_3d = get_3d_label(frames_data)
+    for _, (key, value) in enumerate(out.items()):
+        value['cates'] = labels_3d[key]
+        images.append(image_to_coco_dict(key, image_id))
+        annos = annotation_to_dict(value, image_id)
+        for anno in annos:
+            annotations.append(anno)
+        image_id += 1
+
+    sample['images'] = images
+    sample['annotations'] = annotations
+    with open(output_path, "w") as f:
+        json.dump(sample, f)
+    print('->', output_path,'\n------------------------')
+
+
+
