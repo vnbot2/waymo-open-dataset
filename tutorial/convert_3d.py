@@ -10,7 +10,6 @@ from glob import glob
 import cv2
 import matplotlib.cm
 import matplotlib.pyplot as plt
-import mmcv
 import numpy as np
 import tensorflow as tf
 import torch
@@ -30,10 +29,11 @@ if debug:
     os
     output_dir = './tmp'
     os.makedirs("./cache", exist_ok=1)
-    tf_paths = glob("/ssd6/waymo/mini_tfrecord/*.tfrecord")
+    tf_paths = glob("/data/waymo/mini_tfrecord/*.tfrecord")
 else:
     output_dir = '/ssd6/coco_style_1.2/'
     tf_paths = glob("/toyota/waymo/training_1.2/*tfrecord")
+
 print("tf paths length:", len(tf_paths))
 out_laser_dir = output_dir + '/laser_images'
 out_image_dir = output_dir + '/images'
