@@ -27,18 +27,23 @@ tf.enable_eager_execution()
 
 if debug:
     os
-    output_dir = './tmp'
+    output_dir = './tmp/'
     os.makedirs("./cache", exist_ok=1)
     tf_paths = glob("/data/waymo/mini_tfrecord/*.tfrecord")
+    # tf_paths = tf_paths[:1]
 else:
     output_dir = '/ssd6/coco_style_1.2/'
     tf_paths = glob("/toyota/waymo/training_1.2/*tfrecord")
 
 print("tf paths length:", len(tf_paths))
+
+
 out_laser_dir = output_dir + '/laser_images'
 out_image_dir = output_dir + '/images'
-out_json_dir = output_dir + '/annotations/output_json'
-coco_json_dir = output_dir + "annotations/output_json_coco/"
+out_json_dir =  output_dir + '/annotations/output_json'
+coco_json_dir = output_dir + "/annotations/output_json_coco/"
+
+
 os.makedirs(coco_json_dir, exist_ok=True)
 os.makedirs(out_laser_dir, exist_ok=1)
 os.makedirs(out_image_dir, exist_ok=1)
@@ -49,12 +54,7 @@ parser.add_argument("--start", "-s", type=int, default=0, )
 parser.add_argument("--num_runner", "-n", default=1, type=int)
 args = parser.parse_args()
 
-sample = json.load(open('/ssd6/coco_style_1.2/annotations/val.json'))
-
-
-
-anno = read_json('/ssd6/coco_style_1.2/annotations/test.json')
-
+sample = dict()
 
 def f_frame_data(frame_data):
     frame, frame_id, frame_name = frame_data
@@ -68,7 +68,6 @@ def f_frame_data(frame_data):
                                                 laser_calibration)
     result = {}
     for camera_name in camera_names:
-        # try:
         camera_calibration = utils.get(frame.context.camera_calibrations,
                                     camera_name)
         
@@ -121,9 +120,12 @@ def f_frame_data(frame_data):
         box_3d_list = get_3d_points(camera_calibration, frame.laser_labels)
         box_2d_list = get_2d_bbox(frame, camera_name)
         cv2.imwrite(output_laser_name, laser_as_img)
-        result[output_name] = dict(box_3d_list=box_3d_list,
-                                box_2d_list=box_2d_list,
-                                counts=counts.tolist())
+
+        result[os.path.basename(output_name)] = dict(
+                                    box_3d_list=box_3d_list,
+                                    box_2d_list=box_2d_list,
+                                    counts=counts.tolist()
+                                )
         # except:
         #     #ignore this frame
         #     print("Error on a frame, ignore")
@@ -141,11 +143,7 @@ def f_frame_data(frame_data):
 
 
 
-camera_names = [
-    dataset_pb2.CameraName.FRONT, dataset_pb2.CameraName.FRONT_LEFT,
-    dataset_pb2.CameraName.FRONT_RIGHT, dataset_pb2.CameraName.SIDE_LEFT,
-    dataset_pb2.CameraName.SIDE_RIGHT
-]
+camera_names = [i for i in range(1, 6)]
 
 _tf_paths = []
 for filename in tf_paths:
@@ -179,12 +177,17 @@ for p_i, filename in enumerate(tf_paths):
         # continue # ignore for debug
         out = dict()
         frames_data = f_datapath(filename)
+        # if debug:
+        #     frames_data = frames_data[-1]
         READ_FRAMES = True
         print("TF->JSON not exists, MULTITHREAD:", out_json)
-        outs = multi_thread(f_frame_data,
-                            frames_data,
-                            verbose=1,
-                            max_workers=4)
+        if debug:
+            outs = [f_frame_data(frame_data) for frame_data in tqdm(frames_data)]
+        else:
+            outs = multi_thread(f_frame_data,
+                                frames_data,
+                                verbose=1,
+                                max_workers=4)
         for _ in outs:
             out.update(_)
         with open(out_json, 'w') as f:
@@ -216,8 +219,9 @@ for p_i, filename in enumerate(tf_paths):
     labels_3d = get_3d_label(frames_data)
     for _, (key, value) in enumerate(out.items()):
         value['cates'] = labels_3d[key]['type_id_list']
-        camera_calibration = labels_3d[key]['camera_calibration']
-        images.append(image_to_coco_dict(key, image_id, camera_calibration))
+        vehicle_to_image = labels_3d[key]['vehicle_to_image']
+        image_path = os.path.join(out_image_dir, key)
+        images.append(image_to_coco_dict(image_path, image_id, vehicle_to_image.tolist()))
         annos = annotation_to_dict(value, image_id)
         for anno in annos:
             annotations.append(anno)

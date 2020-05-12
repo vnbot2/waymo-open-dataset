@@ -46,7 +46,6 @@ def get_2d_bbox(frame, camera_name):
 
 
 def get_3d_points(camera_calibration, labels):
-	# compute the transformation matrix from camera reference space -> image space
 	vehicle_to_image = utils.get_image_transform(camera_calibration)
 	vertices_list = []
 	for label in labels:
@@ -171,30 +170,31 @@ def get_3d_label(frames_data):
 		result = {}
 		for camera_name in range(1, 6, 1):
 			camera_calibration = utils.get(frame.context.camera_calibrations, camera_name)
+			vehicle_to_image = utils.get_image_transform(camera_calibration)
 			camera = utils.get(frame.images, camera_name)
 			image_name = dataset_pb2.CameraName.Name.Name(camera_name)
 			output_name = os.path.join(
 				output_dir, 'images', f'{frame_name}_{frame_id}_{image_name}.jpg')
-			result[output_name] = dict(type_id_list=[(l.type, l.id) for l in frame.laser_labels],
-										camera_calibration=camera_calibration.to_list())
+			result[os.path.basename(output_name)] = dict(type_id_list=[(l.type, l.id) for l in frame.laser_labels],
+										vehicle_to_image=vehicle_to_image)
 
 		return result
 
 	label_3d_result = multi_thread(f_frame_data, frames_data)
-	labels_3d_return = label_3d[0]
+	labels_3d_return = label_3d_result[0]
 	for _ in label_3d_result:
 		labels_3d_return.update(_)
 	return labels_3d_return
 
 
-def image_to_coco_dict(image_path, index, camera_calibration):
+def image_to_coco_dict(image_path, index, vehicle_to_image):
 	h, w = cv2.imread(image_path).shape[:2]
 	return {'license': 4,
 			'file_name': os.path.basename(image_path),
 			'height': h,
 			'width': w,
 			'id': index,
-			'camera_calibration':camera_calibration,
+			'vehicle_to_image':vehicle_to_image,
 			}
 
 
@@ -203,9 +203,9 @@ def annotation_to_dict(value, image_index):
 	rt = []
 	box_3d_list = value['box_3d_list']
 	counts = value['counts']
-	cates = value['cates']['type_id_list']
+	cates = value['cates']
 	box_2d_list = value['box_2d_list']
-	for count, box_3d, meta_data in zip(counts, box_3d_list, cates):
+	for count, box_3d, (cate,box_id ) in zip(counts, box_3d_list, cates):
 		if box_3d is not None:
 			ann = {'image_id': image_index,
 				   'category_id': cate,
