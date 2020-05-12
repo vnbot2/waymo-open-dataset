@@ -175,21 +175,21 @@ for p_i, filename in enumerate(tf_paths):
     READ_FRAMES=False
     if not os.path.exists(out_json):
         # continue # ignore for debug
-        out = dict()
         frames_data = f_datapath(filename)
         # if debug:
         #     frames_data = frames_data[-1]
         READ_FRAMES = True
         print("TF->JSON not exists, MULTITHREAD:", out_json)
         if debug:
-            outs = [f_frame_data(frame_data) for frame_data in tqdm(frames_data)]
+            _out = [f_frame_data(frame_data) for frame_data in tqdm(frames_data)]
         else:
-            outs = multi_thread(f_frame_data,
+            _out = multi_thread(f_frame_data,
                                 frames_data,
                                 verbose=1,
                                 max_workers=4)
-        for _ in outs:
-            out.update(_)
+        out = {}
+        for k, v in _out.items():
+            out[os.path.basename(k)] = v
         with open(out_json, 'w') as f:
             json.dump(out, f)
 
@@ -203,7 +203,10 @@ for p_i, filename in enumerate(tf_paths):
         
         try:
             print("TF->JSON exists, READ:", out_json)
-            out = read_json(out_json)
+            _out = read_json(out_json)
+            out = {}
+            for k, v in _out.items():
+                out[os.path.basename(k)] = v
         except:
             print("Cannot read-> remove json", out_json)
             os.remove(out_json)
