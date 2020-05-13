@@ -1,3 +1,4 @@
 mini_kitti_dataset/
 *.sh
 **/__pycache__
+kiti-dataset
