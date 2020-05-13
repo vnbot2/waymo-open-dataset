@@ -35,7 +35,7 @@ LIDAR_PATH = KITTI_PATH + '/lidar'
 parser = argparse.ArgumentParser()
 parser.add_argument("--num_split","-n", default=1, type=int)
 parser.add_argument("--start","-s", default=0, type=int)
-
+parser.add_argument("--kiti_path","-k", default=KITTI_PATH, type=str)
 args = parser.parse_args()
 
 class Adapter:
@@ -78,11 +78,11 @@ class Adapter:
                 # e1 = time.time()
                 # parse the calib
                 # s2 = time.time()
-                self.save_calib(frame, frame_num, file_num)
+                # self.save_calib(frame, frame_num, file_num)
                 # e2 = time.time()
                 # parse lidar
                 # s3 = time.time()
-                self.save_lidar(frame, frame_num, file_num)
+                # self.save_lidar(frame, frame_num, file_num)
                 # e3 = time.time()
                 # parse label
                 # s4 = time.time()
@@ -104,9 +104,10 @@ class Adapter:
         """
         for img in frame.images:
             img_path = IMAGE_PATH + str(img.name - 1) + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.' + IMAGE_FORMAT
-            img = cv2.imdecode(np.frombuffer(img.image, np.uint8), cv2.IMREAD_COLOR)
-            rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            plt.imsave(img_path, rgb_img, format=IMAGE_FORMAT)
+            if not os.path.exists(img_path):
+                img = cv2.imdecode(np.frombuffer(img.image, np.uint8), cv2.IMREAD_COLOR)
+                rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                plt.imsave(img_path, rgb_img, format=IMAGE_FORMAT)
 
     def save_calib(self, frame, frame_num, file_num):
         """ parse and save the calibration data
@@ -114,37 +115,39 @@ class Adapter:
                 :param frame_num: the current frame number
                 :return:
         """
-        fp_calib = open(CALIB_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
-        waymo_cam_RT=np.array([0,-1,0,0,  0,0,-1,0,   1,0,0,0,    0 ,0 ,0 ,1]).reshape(4,4)
-        camera_calib = []
-        R0_rect = ["%e" % i for i in np.eye(3).flatten()]
-        Tr_velo_to_cam = []
-        calib_context = ''
+        file_name = CALIB_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt'
+        if not os.path.exists(file_name):
+            fp_calib = open(file_name, 'w+')
+            waymo_cam_RT=np.array([0,-1,0,0,  0,0,-1,0,   1,0,0,0,    0 ,0 ,0 ,1]).reshape(4,4)
+            camera_calib = []
+            R0_rect = ["%e" % i for i in np.eye(3).flatten()]
+            Tr_velo_to_cam = []
+            calib_context = ''
 
-        for camera in frame.context.camera_calibrations:
-            tmp=np.array(camera.extrinsic.transform).reshape(4,4)
-            tmp=np.linalg.inv(tmp).reshape((16,))
-            Tr_velo_to_cam.append(["%e" % i for i in tmp])
+            for camera in frame.context.camera_calibrations:
+                tmp=np.array(camera.extrinsic.transform).reshape(4,4)
+                tmp=np.linalg.inv(tmp).reshape((16,))
+                Tr_velo_to_cam.append(["%e" % i for i in tmp])
 
-        for cam in frame.context.camera_calibrations:
-            tmp=np.zeros((3,4))
-            tmp[0,0]=cam.intrinsic[0]
-            tmp[1,1]=cam.intrinsic[1]
-            tmp[0,2]=cam.intrinsic[2]
-            tmp[1,2]=cam.intrinsic[3]
-            tmp[2,2]=1
-            tmp=(tmp @ waymo_cam_RT)
-            tmp=list(tmp.reshape(12))
-            tmp = ["%e" % i for i in tmp]
-            camera_calib.append(tmp)
+            for cam in frame.context.camera_calibrations:
+                tmp=np.zeros((3,4))
+                tmp[0,0]=cam.intrinsic[0]
+                tmp[1,1]=cam.intrinsic[1]
+                tmp[0,2]=cam.intrinsic[2]
+                tmp[1,2]=cam.intrinsic[3]
+                tmp[2,2]=1
+                tmp=(tmp @ waymo_cam_RT)
+                tmp=list(tmp.reshape(12))
+                tmp = ["%e" % i for i in tmp]
+                camera_calib.append(tmp)
 
-        for i in range(5):
-            calib_context += "P" + str(i) + ": " + " ".join(camera_calib[i]) + '\n'
-        calib_context += "R0_rect" + ": " + " ".join(R0_rect) + '\n'
-        for i in range(5):
-            calib_context += "Tr_velo_to_cam_" + str(i) + ": " + " ".join(Tr_velo_to_cam[i]) + '\n'
-        fp_calib.write(calib_context)
-        fp_calib.close()
+            for i in range(5):
+                calib_context += "P" + str(i) + ": " + " ".join(camera_calib[i]) + '\n'
+            calib_context += "R0_rect" + ": " + " ".join(R0_rect) + '\n'
+            for i in range(5):
+                calib_context += "Tr_velo_to_cam_" + str(i) + ": " + " ".join(Tr_velo_to_cam[i]) + '\n'
+            fp_calib.write(calib_context)
+            fp_calib.close()
 
     def save_lidar(self, frame, frame_num, file_num):
         """ parse and save the lidar data in psd format
@@ -152,21 +155,23 @@ class Adapter:
                 :param frame_num: the current frame number
                 :return:
                 """
-        range_images, range_image_top_pose = self.parse_range_image_and_camera_projection(
-            frame)
-
-        points, intensity = self.convert_range_image_to_point_cloud(
-            frame,
-            range_images,
-            range_image_top_pose)
-
-
-        points_all = np.concatenate(points, axis=0)
-        intensity_all = np.concatenate(intensity, axis=0)
-        point_cloud = np.column_stack((points_all, intensity_all))
-
         pc_path = LIDAR_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.bin'
-        point_cloud.tofile(pc_path)
+        if not os.path.exists(pc_path):
+            range_images, range_image_top_pose = self.parse_range_image_and_camera_projection(
+                frame)
+
+            points, intensity = self.convert_range_image_to_point_cloud(
+                frame,
+                range_images,
+                range_image_top_pose)
+
+
+            points_all = np.concatenate(points, axis=0)
+            intensity_all = np.concatenate(intensity, axis=0)
+            point_cloud = np.column_stack((points_all, intensity_all))
+
+            
+            point_cloud.tofile(pc_path)
 
     def save_label(self, frame, frame_num, file_num):
         """ parse and save the label data in .txt format
@@ -174,68 +179,70 @@ class Adapter:
                 :param frame_num: the current frame number
                 :return:
                 """
-        fp_label_all = open(LABEL_ALL_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
-        # preprocess bounding box data
-        id_to_bbox = dict()
-        id_to_name = dict()
-        for labels in frame.projected_lidar_labels:
-            name = labels.name
-            for label in labels.labels:
-                bbox = [label.box.center_x - label.box.length / 2, label.box.center_y - label.box.width / 2,
-                        label.box.center_x + label.box.length / 2, label.box.center_y + label.box.width / 2]
-                id_to_bbox[label.id] = bbox
-                id_to_name[label.id] = name - 1
+        file_name = LABEL_ALL_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt'
+        if not os.path.exists(file_name):
+            fp_label_all = open(file_name, 'w+')
+            # preprocess bounding box data
+            id_to_bbox = dict()
+            id_to_name = dict()
+            for labels in frame.projected_lidar_labels:
+                name = labels.name
+                for label in labels.labels:
+                    bbox = [label.box.center_x - label.box.length / 2, label.box.center_y - label.box.width / 2,
+                            label.box.center_x + label.box.length / 2, label.box.center_y + label.box.width / 2]
+                    id_to_bbox[label.id] = bbox
+                    id_to_name[label.id] = name - 1
 
-        for obj in frame.laser_labels:
+            for obj in frame.laser_labels:
 
-            # caculate bounding box
-            bounding_box = None
-            name = None
-            id = obj.id
-            for lidar in self.__lidar_list:
-                if id + lidar in id_to_bbox:
-                    bounding_box = id_to_bbox.get(id + lidar)
-                    name = str(id_to_name.get(id + lidar))
-                    break
-            if bounding_box == None or name == None:
-                continue
+                # caculate bounding box
+                bounding_box = None
+                name = None
+                id = obj.id
+                for lidar in self.__lidar_list:
+                    if id + lidar in id_to_bbox:
+                        bounding_box = id_to_bbox.get(id + lidar)
+                        name = str(id_to_name.get(id + lidar))
+                        break
+                if bounding_box == None or name == None:
+                    continue
 
-            my_type = self.__type_list[obj.type]
-            truncated = 0
-            occluded = 0
-            height = obj.box.height
-            width = obj.box.width
-            length = obj.box.length
-            x = obj.box.center_x
-            y = obj.box.center_y
-            z = obj.box.center_z
-            rotation_y = obj.box.heading
-            beta = math.atan2(x, z)
-            alpha = (rotation_y + beta - math.pi / 2) % (2 * math.pi)
+                my_type = self.__type_list[obj.type]
+                truncated = 0
+                occluded = 0
+                height = obj.box.height
+                width = obj.box.width
+                length = obj.box.length
+                x = obj.box.center_x
+                y = obj.box.center_y
+                z = obj.box.center_z
+                rotation_y = obj.box.heading
+                beta = math.atan2(x, z)
+                alpha = (rotation_y + beta - math.pi / 2) % (2 * math.pi)
 
-            # save the labels
-            line = my_type + ' {} {} {} {} {} {} {} {} {} {} {} {} {} {}\n'.format(round(truncated, 2),
-                                                                                   occluded,
-                                                                                   round(alpha, 2),
-                                                                                   round(bounding_box[0], 2),
-                                                                                   round(bounding_box[1], 2),
-                                                                                   round(bounding_box[2], 2),
-                                                                                   round(bounding_box[3], 2),
-                                                                                   round(height, 2),
-                                                                                   round(width, 2),
-                                                                                   round(length, 2),
-                                                                                   round(x, 2),
-                                                                                   round(y, 2),
-                                                                                   round(z, 2),
-                                                                                   round(rotation_y, 2))
-            line_all = line[:-1] + ' ' + name + '\n'
-            # store the label
-            fp_label = open(LABEL_PATH + name + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'a')
-            fp_label.write(line)
-            fp_label.close()
+                # save the labels
+                line = my_type + ' {} {} {} {} {} {} {} {} {} {} {} {} {} {}\n'.format(round(truncated, 2),
+                                                                                    occluded,
+                                                                                    round(alpha, 2),
+                                                                                    round(bounding_box[0], 2),
+                                                                                    round(bounding_box[1], 2),
+                                                                                    round(bounding_box[2], 2),
+                                                                                    round(bounding_box[3], 2),
+                                                                                    round(height, 2),
+                                                                                    round(width, 2),
+                                                                                    round(length, 2),
+                                                                                    round(x, 2),
+                                                                                    round(y, 2),
+                                                                                    round(z, 2),
+                                                                                    round(rotation_y, 2))
+                line_all = line[:-1] + ' ' + name + '\n'
+                # store the label
+                fp_label = open(LABEL_PATH + name + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'a')
+                fp_label.write(line)
+                fp_label.close()
 
-            fp_label_all.write(line_all)
-        fp_label_all.close()
+                fp_label_all.write(line_all)
+            fp_label_all.close()
 
     def get_file_names(self):
         self.__file_names = []
