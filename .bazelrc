@@ -1,0 +1,13 @@
+build -c opt
+build --cxxopt="-std=c++11"
+build --auto_output_filter=subpackages
+build --copt="-Wall" --copt="-Wno-sign-compare"
+build --linkopt="-lrt -lm"
+build --incompatible_bzl_disallow_load_after_statement=false
+query --incompatible_bzl_disallow_load_after_statement=false
+build --action_env TF_HEADER_DIR="/home/haianh/miniconda3/envs/waymo-dataset/lib/python3.7/site-packages/tensorflow/include"
+build --action_env TF_SHARED_LIBRARY_DIR="/home/haianh/miniconda3/envs/waymo-dataset/lib/python3.7/site-packages/tensorflow"
+build --action_env TF_SHARED_LIBRARY_NAME="libtensorflow_framework.so"
+build --action_env TF_NEED_CUDA="0"
+build:manylinux2010 --crosstool_top=//third_party/toolchains/preconfig/ubuntu16.04/gcc7_manylinux2010-nvcc-cuda10.0:toolchain
+build --cxxopt="-D_GLIBCXX_USE_CXX11_ABI=0"
