@@ -14,11 +14,16 @@ from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
 from pyson.utils import multi_thread
 ############################Config###########################################
+###############################################################################
+parser = argparse.ArgumentParser()
+parser.add_argument("--num_split","-n", default=1, type=int)
+parser.add_argument("--start","-s", default=0, type=int)
+parser.add_argument("--kiti_path","-k", default='/ssd6/waymo/kiti-format', type=str)
+args = parser.parse_args()
+KITTI_PATH = args.kiti_path
 # path to waymo dataset "folder" (all .tfrecord files in that folder will be converted)
 DATA_PATH = '/toyota/waymo/training_1.2/'
 # path to save kitti dataset
-KITTI_PATH = '/ssd6/waymo/kiti-format'
-# location filter, use this to convert your preferred location
 LOCATION_FILTER = True
 LOCATION_NAME = ['location_sf']
 # max indexing length
@@ -31,12 +36,10 @@ LABEL_ALL_PATH = KITTI_PATH + '/label_all'
 IMAGE_PATH = KITTI_PATH + '/image_'
 CALIB_PATH = KITTI_PATH + '/calib'
 LIDAR_PATH = KITTI_PATH + '/lidar'
-###############################################################################
-parser = argparse.ArgumentParser()
-parser.add_argument("--num_split","-n", default=1, type=int)
-parser.add_argument("--start","-s", default=0, type=int)
-parser.add_argument("--kiti_path","-k", default=KITTI_PATH, type=str)
-args = parser.parse_args()
+try:
+    tf.enable_eager_execution()
+except:
+    print(tf.__version__, "tf verse")
 
 class Adapter:
     def __init__(self):
@@ -56,7 +59,6 @@ class Adapter:
                     progressbar.Bar(marker='>',left='[',right=']'),' ',
                     progressbar.ETA()])
 
-        tf.enable_eager_execution()
         frame_num = 0
         print("start converting ...")
         bar.start()
@@ -74,6 +76,7 @@ class Adapter:
                     continue
                 # save the image:
                 # s1 = time.time()
+                
                 self.save_image(frame, frame_num, file_num)
                 # e1 = time.time()
                 # parse the calib
@@ -108,6 +111,8 @@ class Adapter:
                 img = cv2.imdecode(np.frombuffer(img.image, np.uint8), cv2.IMREAD_COLOR)
                 rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                 plt.imsave(img_path, rgb_img, format=IMAGE_FORMAT)
+                print("save image", img_path)
+                assert os.path.exists(img_path), img_path
 
     def save_calib(self, frame, frame_num, file_num):
         """ parse and save the calibration data
