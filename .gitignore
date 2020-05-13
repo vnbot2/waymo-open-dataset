@@ -1,4 +1,4 @@
 mini_kitti_dataset/
-*.sh
+bazel-0.28.0-installer-linux-x86_64.sh
 **/__pycache__
 kiti-dataset

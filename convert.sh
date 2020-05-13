@@ -1,0 +1,11 @@
+# tmux new -s "f0" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 0"
+# tmux new -s "f1" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 1"
+# tmux new -s "f2" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 2"
+# tmux new -s "f3" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 3"
+# tmux new -s "f4" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 4"
+
+tmux new -s "f5" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 5 -k ./kiti_format_5"
+tmux new -s "f6" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 6 -k ./kiti_format_6"
+tmux new -s "f7" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 7 -k ./kiti_format_7"
+tmux new -s "f8" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 8 -k ./kiti_format_8"
+tmux new -s "f9" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 9 -k ./kiti_format_9"
