@@ -64,6 +64,7 @@ class Adapter:
         idx_start = args.start*length 
         idx_end = min((args.start+1)*length, len(self.__file_names))
         file_num = idx_start
+        print("Start", idx_start, idx_end)
         for file_name in self.__file_names[idx_start:idx_end]:
             dataset = tf.data.TFRecordDataset(file_name, compression_type='')
             for data in tqdm(dataset):
