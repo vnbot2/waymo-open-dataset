@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import os
 import math
 # import time
@@ -6,16 +7,17 @@ import cv2
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import progressbar
+import argparse
 
 from waymo_open_dataset.utils import range_image_utils
 from waymo_open_dataset.utils import transform_utils
 from waymo_open_dataset import dataset_pb2 as open_dataset
-
+from pyson.utils import multi_thread
 ############################Config###########################################
 # path to waymo dataset "folder" (all .tfrecord files in that folder will be converted)
-DATA_PATH = '/data/waymo/mini_tfrecord'
+DATA_PATH = '/toyota/waymo/training_1.2/'
 # path to save kitti dataset
-KITTI_PATH = 'mini_kitti_dataset'
+KITTI_PATH = '/ssd6/waymo/kiti-format'
 # location filter, use this to convert your preferred location
 LOCATION_FILTER = True
 LOCATION_NAME = ['location_sf']
@@ -30,6 +32,11 @@ IMAGE_PATH = KITTI_PATH + '/image_'
 CALIB_PATH = KITTI_PATH + '/calib'
 LIDAR_PATH = KITTI_PATH + '/lidar'
 ###############################################################################
+parser = argparse.ArgumentParser()
+parser.add_argument("--num_split","-n", default=1, type=int)
+parser.add_argument("--start","-s", default=0, type=int)
+
+args = parser.parse_args()
 
 class Adapter:
     def __init__(self):
@@ -50,65 +57,63 @@ class Adapter:
                     progressbar.ETA()])
 
         tf.enable_eager_execution()
-        file_num = 1
         frame_num = 0
         print("start converting ...")
         bar.start()
-        for file_name in self.__file_names:
+        length = len(self.__file_names)//args.num_split
+        idx_start = args.start*length 
+        idx_end = min((args.start+1)*length, len(self.__file_names))
+        file_num = idx_start
+        for file_name in self.__file_names[idx_start:idx_end]:
             dataset = tf.data.TFRecordDataset(file_name, compression_type='')
-            for data in dataset:
+            for data in tqdm(dataset):
                 frame = open_dataset.Frame()
                 frame.ParseFromString(bytearray(data.numpy()))
                 if LOCATION_FILTER == True and frame.context.stats.location not in LOCATION_NAME:
                     continue
-
                 # save the image:
                 # s1 = time.time()
-                self.save_image(frame, frame_num)
+                self.save_image(frame, frame_num, file_num)
                 # e1 = time.time()
-
                 # parse the calib
                 # s2 = time.time()
-                self.save_calib(frame, frame_num)
+                self.save_calib(frame, frame_num, file_num)
                 # e2 = time.time()
-
                 # parse lidar
                 # s3 = time.time()
-                self.save_lidar(frame, frame_num)
+                self.save_lidar(frame, frame_num, file_num)
                 # e3 = time.time()
-
                 # parse label
                 # s4 = time.time()
-                self.save_label(frame, frame_num)
+                self.save_label(frame, frame_num, file_num)
                 # e4 = time.time()
-
                 # print("image:{}\ncalib:{}\nlidar:{}\nlabel:{}\n".format(str(s1-e1),str(s2-e2),str(s3-e3),str(s4-e4)))
-
                 frame_num += 1
+
             bar.update(file_num)
             file_num += 1
         bar.finish()
         print("\nfinished ...")
 
-    def save_image(self, frame, frame_num):
+    def save_image(self, frame, frame_num, file_num):
         """ parse and save the images in png format
                 :param frame: open dataset frame proto
                 :param frame_num: the current frame number
                 :return:
         """
         for img in frame.images:
-            img_path = IMAGE_PATH + str(img.name - 1) + '/' + str(frame_num).zfill(INDEX_LENGTH) + '.' + IMAGE_FORMAT
+            img_path = IMAGE_PATH + str(img.name - 1) + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.' + IMAGE_FORMAT
             img = cv2.imdecode(np.frombuffer(img.image, np.uint8), cv2.IMREAD_COLOR)
             rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             plt.imsave(img_path, rgb_img, format=IMAGE_FORMAT)
 
-    def save_calib(self, frame, frame_num):
+    def save_calib(self, frame, frame_num, file_num):
         """ parse and save the calibration data
                 :param frame: open dataset frame proto
                 :param frame_num: the current frame number
                 :return:
         """
-        fp_calib = open(CALIB_PATH + '/' + str(frame_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
+        fp_calib = open(CALIB_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
         waymo_cam_RT=np.array([0,-1,0,0,  0,0,-1,0,   1,0,0,0,    0 ,0 ,0 ,1]).reshape(4,4)
         camera_calib = []
         R0_rect = ["%e" % i for i in np.eye(3).flatten()]
@@ -140,7 +145,7 @@ class Adapter:
         fp_calib.write(calib_context)
         fp_calib.close()
 
-    def save_lidar(self, frame, frame_num):
+    def save_lidar(self, frame, frame_num, file_num):
         """ parse and save the lidar data in psd format
                 :param frame: open dataset frame proto
                 :param frame_num: the current frame number
@@ -154,20 +159,21 @@ class Adapter:
             range_images,
             range_image_top_pose)
 
+
         points_all = np.concatenate(points, axis=0)
         intensity_all = np.concatenate(intensity, axis=0)
         point_cloud = np.column_stack((points_all, intensity_all))
 
-        pc_path = LIDAR_PATH + '/' + str(frame_num).zfill(INDEX_LENGTH) + '.bin'
+        pc_path = LIDAR_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.bin'
         point_cloud.tofile(pc_path)
 
-    def save_label(self, frame, frame_num):
+    def save_label(self, frame, frame_num, file_num):
         """ parse and save the label data in .txt format
                 :param frame: open dataset frame proto
                 :param frame_num: the current frame number
                 :return:
                 """
-        fp_label_all = open(LABEL_ALL_PATH + '/' + str(frame_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
+        fp_label_all = open(LABEL_ALL_PATH + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'w+')
         # preprocess bounding box data
         id_to_bbox = dict()
         id_to_name = dict()
@@ -223,7 +229,7 @@ class Adapter:
                                                                                    round(rotation_y, 2))
             line_all = line[:-1] + ' ' + name + '\n'
             # store the label
-            fp_label = open(LABEL_PATH + name + '/' + str(frame_num).zfill(INDEX_LENGTH) + '.txt', 'a')
+            fp_label = open(LABEL_PATH + name + '/' +  str(frame_num).zfill(INDEX_LENGTH) +"-"+ str(file_num).zfill(INDEX_LENGTH) + '.txt', 'a')
             fp_label.write(line)
             fp_label.close()
 
