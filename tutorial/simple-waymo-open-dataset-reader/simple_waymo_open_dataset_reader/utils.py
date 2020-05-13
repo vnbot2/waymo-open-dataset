@@ -54,6 +54,18 @@ def get_3d_box_projected_corners(vehicle_to_image, label):
     # Loop through the 8 corners constituting the 3D box
     # and project them onto the image
     vertices = np.empty([2,2,2,2])
+    vers = []
+    for k in [0, 1]:
+        rt_k = []
+        for l in [0, 1]:
+            rt_l = []
+            for m in [0, 1]:
+                v = np.array([(k-0.5), (l-0.5), (m-0.5), 1.])
+                rt_l.append(v)
+            
+            rt_k.append(rt_l)
+        vers.append(rt_k)
+    vers = np.array(vers)
     for k in [0, 1]:
         for l in [0, 1]:
             for m in [0, 1]:

@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 
 
-output_dir = '/ssd6/coco_style_1.2/'
+output_dir = './tmp/'
 coco_json_dir = output_dir + "annotations/output_json_coco/"
 out_file = output_dir +"annotations/train_3d.json"
 
@@ -18,12 +18,12 @@ img_id_new = 0
 ann_id_new = 0
 images = []
 annotations = []
-sample = read_json(json_paths[0])
+sample = {}#read_json(json_paths[0])
 cates = [{'supercategory': 'vehicle', 'id': 1, 'name': 'vehicle'},
          {'supercategory': 'perdestrian', 'id': 2, 'name': 'perdestrian'},
-         {'supercategory': 'sign', 'id': 3, 'name': 'sign'},
-         {'supercategory': 'cyclis', 'id': 3, 'name': 'cyclis'}]
-del sample['with_camlabel']
+         {'supercatwgory': 'sign', 'id': 3, 'name': 'sign'},
+         {'supercategory': 'cyclis', 'id': 4, 'name': 'cyclis'}]
+# del sample['with_camlabel']
 sample['categories'] = cates
 
 for path in tqdm(json_paths):

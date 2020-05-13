@@ -30,7 +30,7 @@ if debug:
     output_dir = './tmp/'
     os.makedirs("./cache", exist_ok=1)
     tf_paths = glob("/data/waymo/mini_tfrecord/*.tfrecord")
-    # tf_paths = tf_paths[:1]
+    tf_paths = tf_paths[:1]
 else:
     output_dir = '/ssd6/coco_style_1.2/'
     tf_paths = glob("/toyota/waymo/training_1.2/*tfrecord")
@@ -126,17 +126,7 @@ def f_frame_data(frame_data):
                                     box_2d_list=box_2d_list,
                                     counts=counts.tolist()
                                 )
-        # except:
-        #     #ignore this frame
-        #     print("Error on a frame, ignore")
-        #     continue
-        # if debug:
-        #     display_laser_on_image(img, pcl, vehicle_to_image, pcl_attr)
-        #     display_3d_box_on_image(img, box_3d_list, visibility)
-        #     display_2d_box_on_image(img, box_2d_list)
-        #     debug_path = './cache/' + os.path.basename(output_laser_name)
-        #     cv2.imwrite(debug_path, img)
-        #     print(debug_path)
+
     return result
 
 
@@ -188,8 +178,9 @@ for p_i, filename in enumerate(tf_paths):
                                 verbose=1,
                                 max_workers=4)
         out = {}
-        for k, v in _out.items():
-            out[os.path.basename(k)] = v
+        for item in _out:
+            for k, v in item.items():
+                out[os.path.basename(k)] = v
         with open(out_json, 'w') as f:
             json.dump(out, f)
 

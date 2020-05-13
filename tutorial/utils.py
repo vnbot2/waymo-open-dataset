@@ -49,6 +49,7 @@ def get_3d_points(camera_calibration, labels):
 	vehicle_to_image = utils.get_image_transform(camera_calibration)
 	vertices_list = []
 	for label in labels:
+		import ipdb; ipdb.set_trace()
 		vertices = utils.get_3d_box_projected_corners(vehicle_to_image, label)
 		if vertices is not None:
 			vertices = vertices.tolist()
@@ -87,10 +88,6 @@ def my_draw_3d_box(img, vertices, colour=(255, 128, 128), draw_2d_bounding_box=F
 
 
 def display_3d_box_on_image(img, boxes_3d, visibility):
-	#     import ipdb; ipdb.set_trace()
-	# Get the transformation matrix from the vehicle frame to image space.
-	#     vehicle_to_image = utils.get_image_transform(camera_calibration)
-	# Draw all the groundtruth labels
 	for boxe_3d, vis in zip(boxes_3d, visibility):
 		if vis:
 			colour = (0, 0, 200)
