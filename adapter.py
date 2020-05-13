@@ -111,8 +111,9 @@ class Adapter:
                 img = cv2.imdecode(np.frombuffer(img.image, np.uint8), cv2.IMREAD_COLOR)
                 rgb_img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                 plt.imsave(img_path, rgb_img, format=IMAGE_FORMAT)
-#                 print("save image", img_path)
                 assert os.path.exists(img_path), img_path
+            else:
+                print("Exists, continue")
 
     def save_calib(self, frame, frame_num, file_num):
         """ parse and save the calibration data

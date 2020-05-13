@@ -1,11 +1,22 @@
-# tmux new -s "f0" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 0"
-# tmux new -s "f1" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 1"
-# tmux new -s "f2" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 2"
-# tmux new -s "f3" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 3"
-# tmux new -s "f4" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 4"
-
-tmux new -s "f5" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 5 -k ./kiti_format_5"
-tmux new -s "f6" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 6 -k ./kiti_format_6"
-tmux new -s "f7" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 7 -k ./kiti_format_7"
-tmux new -s "f8" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 8 -k ./kiti_format_8"
-tmux new -s "f9" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 10 -s 9 -k ./kiti_format_9"
+tmux kill-session -t f10
+tmux new -s "f10" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 10 -k /shared/kiti-dataset "
+tmux kill-session -t f11
+tmux new -s "f11" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 11 -k /shared/kiti-dataset "
+tmux kill-session -t f12
+tmux new -s "f12" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 12 -k /shared/kiti-dataset "
+tmux kill-session -t f13
+tmux new -s "f13" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 13 -k /shared/kiti-dataset "
+tmux kill-session -t f14
+tmux new -s "f14" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 14 -k /shared/kiti-dataset "
+tmux kill-session -t f15
+tmux new -s "f15" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 15 -k /shared/kiti-dataset "
+tmux kill-session -t f16
+tmux new -s "f16" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 16 -k /shared/kiti-dataset "
+tmux kill-session -t f17
+tmux new -s "f17" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 17 -k /shared/kiti-dataset "
+tmux kill-session -t f18
+tmux new -s "f18" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 18 -k /shared/kiti-dataset "
+tmux kill-session -t f19
+tmux new -s "f19" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 19 -k /shared/kiti-dataset "
+tmux kill-session -t f20
+tmux new -s "f20" -d "CUDA_VISIBLE_DEVICES=-1 python adapter.py -n 20 -s 20 -k /shared/kiti-dataset "
